@@ -5,7 +5,7 @@ const electron = require('electron-connect').server.create();
 gulp.task('compile', function(){
   return gulp.src('src/**/*.{js,jsx}')
     .pipe(babel({
-            presets: ['react']
+            presets: ["es2015", "react"]
         }))
     .pipe(gulp.dest('app/js'));
 });
