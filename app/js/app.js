@@ -1,5 +1,7 @@
 'use strict';
 
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
 var _react = require('react');
 
 var _react2 = _interopRequireDefault(_react);
@@ -36,50 +38,19 @@ var _lodash = require('lodash');
 
 var _lodash2 = _interopRequireDefault(_lodash);
 
+var _IBeaconService = require('../js/IBeaconService');
+
+var _IBeaconService2 = _interopRequireDefault(_IBeaconService);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var noble = require('noble');
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var EXPECTED_MANUFACTURER_DATA_LENGTH = 25;
-var APPLE_COMPANY_IDENTIFIER = 0x004c;
-var IBEACON_TYPE = 0x02;
-var EXPECTED_IBEACON_DATA_LENGTH = 0x15;
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-if (noble.state === 'poweredOn') {
-  noble.startScanning([], true);
-} else {
-  noble.on('stateChange', function () {
-    noble.startScanning([], true);
-  });
-}
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var discovered = {};
-noble.on('discover', function (peripheral) {
-  var manufacturerData = peripheral.advertisement.manufacturerData;
-  var rssi = peripheral.rssi;
-  if (manufacturerData && EXPECTED_MANUFACTURER_DATA_LENGTH <= manufacturerData.length && APPLE_COMPANY_IDENTIFIER === manufacturerData.readUInt16LE(0) && IBEACON_TYPE === manufacturerData.readUInt8(2) && EXPECTED_IBEACON_DATA_LENGTH === manufacturerData.readUInt8(3)) {
-
-    var uuid = manufacturerData.slice(4, 20).toString('hex');
-    var major = manufacturerData.readUInt16BE(20);
-    var minor = manufacturerData.readUInt16BE(22);
-    var measuredPower = manufacturerData.readInt8(24);
-    var accuracy = Math.pow(12.0, 1.5 * (rssi / measuredPower - 1));
-
-    var bleacon = {};
-    bleacon.key = uuid.concat(major, minor);
-    bleacon.uuid = uuid;
-    bleacon.major = major;
-    bleacon.minor = minor;
-    bleacon.measuredPower = measuredPower;
-    bleacon.rssi = rssi;
-    bleacon.accuracy = accuracy;
-    bleacon.date = Date.now();
-
-    store.dispatch({ type: 'DISCOVER', data: bleacon });
-
-    // console.log('%d : onDiscover: uuid = %s, major = %d, minor = %d, measuredPower = %d, accuracy = %f', bleacon.date, uuid, major, minor, measuredPower, accuracy);
-  }
-});
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
 (0, _reactTapEventPlugin2.default)();
 
@@ -89,51 +60,66 @@ var reducer = function reducer() {
 
   switch (action.type) {
     case 'DISCOVER':
-      var data = {};
-      data[action.data.uuid] = action.data;
-      return Object.assign({}, state, data);
+      {
+        var data = _defineProperty({}, action.data.uuid, action.data);
+        return Object.assign({}, state, data);
+      }
     case 'REFRESH':
-      var list = _lodash2.default.filter(_lodash2.default.toArray(state), function (beacon) {
-        console.log(Date.now() - beacon.date);
-        return Date.now() - beacon.date >= 5000;
-      });
-      return list;
+      {
+        return _lodash2.default.filter(_lodash2.default.toArray(state), function (beacon) {
+          return Date.now() - beacon.date > 5000;
+        });
+      }
     default:
       return state;
   }
 };
+
 var store = (0, _redux.createStore)(reducer);
 
-var refresh = function refresh() {
-  store.dispatch({ type: 'REFRESH', date: Date.now() });
-};
+var beaconService = new _IBeaconService2.default(store);
+beaconService.startScanning();
 
-var BeaconList = _react2.default.createClass({
-  displayName: 'BeaconList',
+var BeaconList = function (_React$Component) {
+  _inherits(BeaconList, _React$Component);
 
-  componentDidMount: function componentDidMount() {
-    setInterval("refresh()", 5000);
-  },
-  render: function render() {
-    // console.log(JSON.stringify(store.getState()));
-    var listItems = _lodash2.default.toArray(store.getState()).map(function (beacon) {
-      return _react2.default.createElement(_List.ListItem, { key: beacon.key, primaryText: beacon.key, leftIcon: _react2.default.createElement(_inbox2.default, null) });
-    });
+  function BeaconList() {
+    _classCallCheck(this, BeaconList);
 
-    return _react2.default.createElement(
-      _MuiThemeProvider2.default,
-      { className: 'BeaconList', muiTheme: (0, _getMuiTheme2.default)(_lightBaseTheme2.default) },
-      _react2.default.createElement(
-        _List.List,
-        { className: 'Beacons' },
-        listItems
-      )
-    );
+    return _possibleConstructorReturn(this, (BeaconList.__proto__ || Object.getPrototypeOf(BeaconList)).apply(this, arguments));
   }
-});
+
+  _createClass(BeaconList, [{
+    key: 'componentDidMount',
+    value: function componentDidMount() {
+      setInterval(function () {
+        return store.dispatch({ type: 'REFRESH', date: Date.now() });
+      }, 5000);
+    }
+  }, {
+    key: 'render',
+    value: function render() {
+      var listItems = _lodash2.default.toArray(store.getState()).map(function (beacon) {
+        return _react2.default.createElement(_List.ListItem, { key: beacon.key, primaryText: beacon.key, leftIcon: _react2.default.createElement(_inbox2.default, null) });
+      });
+
+      return _react2.default.createElement(
+        _MuiThemeProvider2.default,
+        { className: 'BeaconList', muiTheme: (0, _getMuiTheme2.default)(_lightBaseTheme2.default) },
+        _react2.default.createElement(
+          _List.List,
+          { className: 'Beacons' },
+          listItems
+        )
+      );
+    }
+  }]);
+
+  return BeaconList;
+}(_react2.default.Component);
 
 var render = function render() {
-  _reactDom2.default.render(_react2.default.createElement(BeaconList, { data: discovered }), document.getElementById('content'));
+  _reactDom2.default.render(_react2.default.createElement(BeaconList, null), document.getElementById('content'));
 };
 
 store.subscribe(render);
